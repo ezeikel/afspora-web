@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+ #map {
+   width: 100%;
+ }
+ @media (min-width: 768px) {
+   #map {
+     max-width: 800px;
+     margin: 0 auto;
+   }
+ }
+ .tooltip {
+   background-color: white;
+   border: 1px solid black;
+   border-radius: 5px;
+   padding: 10px;
+ }

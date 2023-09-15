@@ -1,42 +1,50 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import * as d3 from 'd3';
-import { FeatureCollection, Geometry } from 'geojson';
+import GeoJSON from 'geojson';
 
 const AfricaMap: React.FC = () => {
   useEffect(() => {
-    d3.select('#map').selectAll('svg').remove();
+    const redrawMap = () => {
+      const container = document.getElementById('map');
+      const width = container ? container.offsetWidth : 800;
+      let height = container ? container.offsetHeight : 800;
 
-    // Add tooltip
-    const tooltip = d3
-      .select('body')
-      .append('div')
-      .attr('class', 'tooltip')
-      .style('position', 'absolute')
-      .style('visibility', 'hidden');
+      if (height === 0) {
+        height = width;
+      }
 
-    // Set dimensions
-    const width = 800;
-    const height = 800;
+      // Remove existing SVG
+      d3.select('#map').selectAll('svg').remove();
 
-    // Create SVG
-    const svg = d3
-      .select('#map')
-      .append('svg')
-      .attr('width', width)
-      .attr('height', height);
+      // Set up projection
+      const projection = d3.geoMercator().scale(1).translate([0, 0]);
 
-    // Setup projection and path
-    const projection = d3.geoMercator().scale(1).translate([0, 0]);
+      const path = d3.geoPath().projection(projection);
 
-    const path = d3.geoPath().projection(projection);
+      // Create SVG
+      const svg = d3
+        .select('#map')
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`);
 
-    // Load GeoJSON data
-    d3.json<FeatureCollection<Geometry>>('/json/africa-countries.geojson').then(
-      (data) => {
+      const g = svg.append('g');
+
+      // Tooltip
+      const tooltip = d3
+        .select('body')
+        .append('div')
+        .attr('class', 'tooltip')
+        .style('position', 'absolute')
+        .style('visibility', 'hidden');
+
+      // Load data and render
+      d3.json('/json/africa-countries.geojson').then((data: unknown) => {
+        const geoData = data as GeoJSON.FeatureCollection;
+
         // Auto fit to container
-        const bounds = data ? path.bounds(data) : [];
+        const bounds = geoData ? path.bounds(geoData) : [];
         const scaleX = (bounds[1][0] - bounds[0][0]) / width;
         const scaleY = (bounds[1][1] - bounds[0][1]) / height;
         const scale = 1 / Math.max(scaleX, scaleY);
@@ -50,7 +58,7 @@ const AfricaMap: React.FC = () => {
         // Draw countries
         svg
           .selectAll('path')
-          .data(data?.features ?? [])
+          .data(geoData?.features ?? [])
           .enter()
           .append('path')
           .attr('d', path as any)
@@ -69,8 +77,27 @@ const AfricaMap: React.FC = () => {
           .on('mouseout', () => {
             tooltip.style('visibility', 'hidden');
           });
-      },
-    );
+
+        const zoom = d3
+          .zoom()
+          .scaleExtent([1, 8])
+          .on('zoom', (event: d3.D3ZoomEvent<SVGGElement, unknown>) => {
+            g.attr('transform', event.transform.toString());
+          });
+
+        (g as any).call(zoom);
+      });
+    };
+
+    // Initial draw
+    redrawMap();
+
+    // Handle window resize
+    window.addEventListener('resize', redrawMap);
+
+    return () => {
+      window.removeEventListener('resize', redrawMap);
+    };
   }, []);
 
   return <div id="map" />;
